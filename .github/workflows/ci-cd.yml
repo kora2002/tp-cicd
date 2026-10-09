@@ -47,3 +47,16 @@ jobs:
       - name: Publier l'image
         run: |
           docker push ${{ secrets.DOCKER_USERNAME }}/tp-cicd:latest
+
+  deploy:
+    needs: docker
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Récupérer l'image depuis Docker Hub
+        run: |
+          docker pull ${{ secrets.DOCKER_USERNAME }}/tp-cicd:latest
+
+      - name: Déployer (lancer le conteneur)
+        run: |
+          docker run --rm ${{ secrets.DOCKER_USERNAME }}/tp-cicd:latest
