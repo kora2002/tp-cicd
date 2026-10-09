@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+    tags:
+      - 'v*'
 
 jobs:
   test:
@@ -29,6 +31,8 @@ jobs:
   docker:
     needs: test
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
 
     steps:
       - name: Récupérer le code
@@ -40,13 +44,22 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
+      - name: Définir le tag Docker
+        id: version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=latest" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Construire l'image
         run: |
-          docker build -t ${{ secrets.DOCKER_USERNAME }}/tp-cicd:latest .
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/tp-cicd:${{ steps.version.outputs.tag }} .
 
       - name: Publier l'image
         run: |
-          docker push ${{ secrets.DOCKER_USERNAME }}/tp-cicd:latest
+          docker push ${{ secrets.DOCKER_USERNAME }}/tp-cicd:${{ steps.version.outputs.tag }}
 
   deploy:
     needs: docker
@@ -55,8 +68,8 @@ jobs:
     steps:
       - name: Récupérer l'image depuis Docker Hub
         run: |
-          docker pull ${{ secrets.DOCKER_USERNAME }}/tp-cicd:latest
+          docker pull ${{ secrets.DOCKER_USERNAME }}/tp-cicd:${{ needs.docker.outputs.tag }}
 
       - name: Déployer (lancer le conteneur)
         run: |
-          docker run --rm ${{ secrets.DOCKER_USERNAME }}/tp-cicd:latest
+          docker run --rm ${{ secrets.DOCKER_USERNAME }}/tp-cicd:${{ needs.docker.outputs.tag }}
